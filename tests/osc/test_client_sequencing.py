@@ -84,7 +84,11 @@ class TestClipControls(unittest.TestCase):
         self.client.client.send_message.assert_called_with("/track/3/clip/1/record", 1)
 
     def test_clip_name_and_quantize(self):
-        """Naming and quantizing a clip"""
+        """Naming and quantizing a clip
+
+        Naming is asserted at the wire level only: Bitwig ignores the message
+        in practice, which set_clip_name documents.
+        """
         self.client.set_clip_name(1, 1, "Kick")
         self.client.client.send_message.assert_called_with(
             "/track/1/clip/1/name", "Kick"
@@ -92,6 +96,14 @@ class TestClipControls(unittest.TestCase):
 
         self.client.quantize_clip()
         self.client.client.send_message.assert_called_with("/clip/quantize", 1)
+
+    def test_remove_clip(self):
+        """Removing a clip targets its slot"""
+        self.client.remove_clip(2, 3)
+        self.client.client.send_message.assert_called_with("/track/2/clip/3/remove", 1)
+
+        with pytest.raises(InvalidParameterError):
+            self.client.remove_clip(2, 0)
 
     def test_launch_scene(self):
         """Scene launching is 1-based"""

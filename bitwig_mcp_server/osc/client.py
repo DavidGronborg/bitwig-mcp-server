@@ -816,6 +816,13 @@ class BitwigOSCClient:
     def set_clip_name(self, track_index: int, slot_index: int, name: str) -> None:
         """Name a clip
 
+        Known not to work. The address is documented upstream, but on
+        DrivenByMoss 5.2 (tested against Bitwig 6.1.4) the clip name stays
+        empty afterwards, and /clip/name is not reported back at all, with or
+        without the clip selected first. Kept because the address is part of
+        the documented protocol and may work on other versions; deliberately
+        not exposed as an MCP tool, so nothing depends on it silently.
+
         Args:
             track_index: Track index (1-based)
             slot_index: Clip slot index (1-based, 1-8)
@@ -832,6 +839,22 @@ class BitwigOSCClient:
             raise InvalidParameterError("name", name, "must be a string")
 
         self.send(f"/track/{track_index}/clip/{slot_index}/name", name)
+
+    def remove_clip(self, track_index: int, slot_index: int) -> None:
+        """Delete the clip in a clip slot
+
+        Args:
+            track_index: Track index (1-based)
+            slot_index: Clip slot index (1-based, 1-8)
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+        self._validate_slot_index(slot_index)
+
+        self.send(f"/track/{track_index}/clip/{slot_index}/remove", 1)
 
     def quantize_clip(self) -> None:
         """Quantize the currently selected clip
