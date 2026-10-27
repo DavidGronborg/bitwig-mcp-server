@@ -711,6 +711,332 @@ class BitwigOSCClient:
         # Commit selection
         self.commit_browser_selection()
 
+    # Track creation
+    def add_instrument_track(self) -> None:
+        """Append a new instrument track to the project
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        self.send("/track/add/instrument", 1)
+
+    def add_audio_track(self) -> None:
+        """Append a new audio track to the project
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        self.send("/track/add/audio", 1)
+
+    def add_effect_track(self) -> None:
+        """Append a new effect track to the project
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        self.send("/track/add/effect", 1)
+
+    def set_track_recarm(self, track_index: int, state: Optional[bool] = None) -> None:
+        """Arm or disarm a track for recording
+
+        Args:
+            track_index: Track index (1-based)
+            state: True to arm, False to disarm, None to toggle
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+
+        if state is None:
+            self.send(f"/track/{track_index}/recarm", None)
+        else:
+            self.send(f"/track/{track_index}/recarm", 1 if state else 0)
+
+    # Clip controls
+    def create_clip(self, track_index: int, slot_index: int, beats: int) -> None:
+        """Create an empty clip in a clip slot
+
+        Args:
+            track_index: Track index (1-based)
+            slot_index: Clip slot index (1-based, 1-8)
+            beats: Length of the new clip in beats
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+        self._validate_slot_index(slot_index)
+
+        if not isinstance(beats, int) or isinstance(beats, bool):
+            raise InvalidParameterError("beats", beats, "must be an integer")
+
+        if beats < 1:
+            raise InvalidParameterError("beats", beats, "must be at least 1")
+
+        self.send(f"/track/{track_index}/clip/{slot_index}/create", beats)
+
+    def launch_clip(
+        self, track_index: int, slot_index: int, state: bool = True
+    ) -> None:
+        """Launch or release a clip
+
+        Args:
+            track_index: Track index (1-based)
+            slot_index: Clip slot index (1-based, 1-8)
+            state: True to launch, False to release
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+        self._validate_slot_index(slot_index)
+
+        self.send(f"/track/{track_index}/clip/{slot_index}/launch", 1 if state else 0)
+
+    def record_clip(self, track_index: int, slot_index: int) -> None:
+        """Start recording into a clip slot
+
+        Args:
+            track_index: Track index (1-based)
+            slot_index: Clip slot index (1-based, 1-8)
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+        self._validate_slot_index(slot_index)
+
+        self.send(f"/track/{track_index}/clip/{slot_index}/record", 1)
+
+    def set_clip_name(self, track_index: int, slot_index: int, name: str) -> None:
+        """Name a clip
+
+        Args:
+            track_index: Track index (1-based)
+            slot_index: Clip slot index (1-based, 1-8)
+            name: Name to give the clip
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_track_index(track_index)
+        self._validate_slot_index(slot_index)
+
+        if not isinstance(name, str):
+            raise InvalidParameterError("name", name, "must be a string")
+
+        self.send(f"/track/{track_index}/clip/{slot_index}/name", name)
+
+    def quantize_clip(self) -> None:
+        """Quantize the currently selected clip
+
+        Bitwig quantizes to the grid configured in its own settings. This is how
+        note timing is repaired after notes are performed over OSC, where send
+        jitter puts them slightly off the beat.
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        self.send("/clip/quantize", 1)
+
+    def launch_scene(self, scene_index: int, state: bool = True) -> None:
+        """Launch a scene
+
+        Args:
+            scene_index: Scene index (1-based)
+            state: True to launch, False to release
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        if not isinstance(scene_index, int) or isinstance(scene_index, bool):
+            raise InvalidParameterError(
+                "scene_index", scene_index, "must be an integer"
+            )
+
+        if scene_index < 1:
+            raise InvalidParameterError(
+                "scene_index", scene_index, "must be at least 1 (1-based indexing)"
+            )
+
+        self.send(f"/scene/{scene_index}/launch", 1 if state else 0)
+
+    # Transport and recording
+    def record(self) -> None:
+        """Toggle the transport record button
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        self.send("/record", 1)
+
+    def set_overdub(self, state: Optional[bool] = None) -> None:
+        """Set launcher overdub
+
+        Args:
+            state: True to enable, False to disable, None to toggle
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        if state is None:
+            self.send("/overdub", None)
+        else:
+            self.send("/overdub", 1 if state else 0)
+
+    def set_click(self, state: Optional[bool] = None) -> None:
+        """Set the metronome
+
+        Args:
+            state: True to enable, False to disable, None to toggle
+
+        Raises:
+            ConnectionError: If unable to send the command
+        """
+        if state is None:
+            self.send("/click", None)
+        else:
+            self.send("/click", 1 if state else 0)
+
+    def set_position(self, beats: float) -> None:
+        """Move the playhead to a position
+
+        Args:
+            beats: Position in beats from the start of the arrangement
+
+        Raises:
+            InvalidParameterError: If beats is invalid
+            ConnectionError: If unable to send the command
+        """
+        if not isinstance(beats, (int, float)) or isinstance(beats, bool):
+            raise InvalidParameterError("beats", beats, "must be a number")
+
+        if beats < 0:
+            raise InvalidParameterError("beats", beats, "must not be negative")
+
+        self.send("/time", beats)
+
+    def set_time_signature(self, signature: str) -> None:
+        """Set the project time signature
+
+        Args:
+            signature: Time signature as text, such as 4/4
+
+        Raises:
+            InvalidParameterError: If signature is invalid
+            ConnectionError: If unable to send the command
+        """
+        if not isinstance(signature, str) or "/" not in signature:
+            raise InvalidParameterError(
+                "signature", signature, "must be text such as 4/4"
+            )
+
+        self.send("/time/signature", signature)
+
+    # Note input via the virtual keyboard
+    def note_on(self, note: int, velocity: int = 100, channel: int = 1) -> None:
+        """Play a note
+
+        Notes sent this way are played live, exactly as if they arrived from a
+        MIDI keyboard, so they are only captured if a clip is recording. There
+        is no OSC address for writing notes into a clip directly.
+
+        Args:
+            note: MIDI note number (0-127)
+            velocity: Note velocity (0-127)
+            channel: MIDI channel (1-16)
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_note(note)
+        self._validate_channel(channel)
+
+        if not isinstance(velocity, int) or isinstance(velocity, bool):
+            raise InvalidParameterError("velocity", velocity, "must be an integer")
+
+        if velocity < 0 or velocity > 127:
+            raise InvalidParameterError("velocity", velocity, "must be 0-127")
+
+        self.send(f"/vkb_midi/{channel}/note/{note}", velocity)
+
+    def note_off(self, note: int, channel: int = 1) -> None:
+        """Release a note
+
+        Args:
+            note: MIDI note number (0-127)
+            channel: MIDI channel (1-16)
+
+        Raises:
+            InvalidParameterError: If parameters are invalid
+            ConnectionError: If unable to send the command
+        """
+        self._validate_note(note)
+        self._validate_channel(channel)
+
+        self.send(f"/vkb_midi/{channel}/note/{note}", 0)
+
+    # Shared validation
+    def _validate_track_index(self, track_index: int) -> None:
+        """Check a 1-based track index
+
+        Raises:
+            InvalidParameterError: If the index is invalid
+        """
+        if not isinstance(track_index, int) or isinstance(track_index, bool):
+            raise InvalidParameterError(
+                "track_index", track_index, "must be an integer"
+            )
+
+        if track_index < 1:
+            raise InvalidParameterError(
+                "track_index", track_index, "must be at least 1 (1-based indexing)"
+            )
+
+    def _validate_slot_index(self, slot_index: int) -> None:
+        """Check a 1-based clip slot index
+
+        Raises:
+            InvalidParameterError: If the index is invalid
+        """
+        if not isinstance(slot_index, int) or isinstance(slot_index, bool):
+            raise InvalidParameterError("slot_index", slot_index, "must be an integer")
+
+        if slot_index < 1 or slot_index > 8:
+            raise InvalidParameterError("slot_index", slot_index, "must be 1-8")
+
+    def _validate_note(self, note: int) -> None:
+        """Check a MIDI note number
+
+        Raises:
+            InvalidParameterError: If the note is invalid
+        """
+        if not isinstance(note, int) or isinstance(note, bool):
+            raise InvalidParameterError("note", note, "must be an integer")
+
+        if note < 0 or note > 127:
+            raise InvalidParameterError("note", note, "must be 0-127")
+
+    def _validate_channel(self, channel: int) -> None:
+        """Check a MIDI channel
+
+        Raises:
+            InvalidParameterError: If the channel is invalid
+        """
+        if not isinstance(channel, int) or isinstance(channel, bool):
+            raise InvalidParameterError("channel", channel, "must be an integer")
+
+        if channel < 1 or channel > 16:
+            raise InvalidParameterError("channel", channel, "must be 1-16")
+
     def get_status(self) -> Dict[str, Any]:
         """Get client status information
 

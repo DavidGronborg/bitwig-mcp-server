@@ -4,8 +4,10 @@ Bitwig MCP Tools
 This module provides MCP tools for controlling Bitwig Studio.
 """
 
+import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -435,6 +437,226 @@ def get_bitwig_tools() -> List[Tool]:
                         "default": 0,
                     },
                 },
+            },
+        ),
+        Tool(
+            name="add_track",
+            description="Add a new track to the project (instrument, audio or effect)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_type": {
+                        "type": "string",
+                        "enum": ["instrument", "audio", "effect"],
+                        "description": "Kind of track to add",
+                    }
+                },
+                "required": ["track_type"],
+            },
+        ),
+        Tool(
+            name="set_track_recarm",
+            description="Arm or disarm a track for recording",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "armed": {
+                        "type": "boolean",
+                        "description": "True to arm, False to disarm",
+                    },
+                },
+                "required": ["track_index", "armed"],
+            },
+        ),
+        Tool(
+            name="create_clip",
+            description="Create an empty clip in a clip slot",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "slot_index": {
+                        "type": "integer",
+                        "description": "Clip slot index (1-8)",
+                    },
+                    "beats": {
+                        "type": "integer",
+                        "description": "Clip length in beats",
+                    },
+                },
+                "required": ["track_index", "slot_index", "beats"],
+            },
+        ),
+        Tool(
+            name="launch_clip",
+            description="Launch a clip in a clip slot",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "slot_index": {
+                        "type": "integer",
+                        "description": "Clip slot index (1-8)",
+                    },
+                },
+                "required": ["track_index", "slot_index"],
+            },
+        ),
+        Tool(
+            name="launch_scene",
+            description="Launch a scene, starting every clip in that row",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "scene_index": {
+                        "type": "integer",
+                        "description": "Scene index (1-based)",
+                    }
+                },
+                "required": ["scene_index"],
+            },
+        ),
+        Tool(
+            name="quantize_clip",
+            description="Quantize the selected clip to Bitwig's grid setting",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="set_metronome",
+            description="Turn the metronome click on or off",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True for on, False for off",
+                    }
+                },
+                "required": ["enabled"],
+            },
+        ),
+        Tool(
+            name="set_time_signature",
+            description="Set the project time signature, for example 4/4",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "signature": {
+                        "type": "string",
+                        "description": "Time signature as text, such as 4/4",
+                    }
+                },
+                "required": ["signature"],
+            },
+        ),
+        Tool(
+            name="play_note",
+            description=(
+                "Play a single note live. Audible only if the track has an "
+                "instrument, and captured only if a clip is recording"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "note": {
+                        "type": "integer",
+                        "description": "MIDI note number (0-127, 60 is middle C)",
+                    },
+                    "velocity": {
+                        "type": "integer",
+                        "description": "Velocity (0-127)",
+                        "default": 100,
+                    },
+                    "duration_seconds": {
+                        "type": "number",
+                        "description": "How long to hold the note",
+                        "default": 0.25,
+                    },
+                },
+                "required": ["note"],
+            },
+        ),
+        Tool(
+            name="record_pattern",
+            description=(
+                "Record a note pattern into a clip. Creates the clip, arms the "
+                "track, records while performing the notes in real time, then "
+                "stops and quantizes. This is the only way to get notes into a "
+                "clip, as OSC has no address for writing notes directly"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "slot_index": {
+                        "type": "integer",
+                        "description": "Clip slot index (1-8)",
+                    },
+                    "length_beats": {
+                        "type": "integer",
+                        "description": "Clip length in beats",
+                    },
+                    "bpm": {
+                        "type": "number",
+                        "description": "Project tempo, used to time the performance",
+                    },
+                    "notes": {
+                        "type": "array",
+                        "description": "Notes to perform",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "note": {
+                                    "type": "integer",
+                                    "description": "MIDI note number (0-127)",
+                                },
+                                "start_beat": {
+                                    "type": "number",
+                                    "description": "Start position in beats from clip start",
+                                },
+                                "length_beats": {
+                                    "type": "number",
+                                    "description": "Note length in beats",
+                                    "default": 0.5,
+                                },
+                                "velocity": {
+                                    "type": "integer",
+                                    "description": "Velocity (0-127)",
+                                    "default": 100,
+                                },
+                            },
+                            "required": ["note", "start_beat"],
+                        },
+                    },
+                    "quantize": {
+                        "type": "boolean",
+                        "description": "Quantize the clip afterwards to repair send jitter",
+                        "default": True,
+                    },
+                },
+                "required": [
+                    "track_index",
+                    "slot_index",
+                    "length_beats",
+                    "bpm",
+                    "notes",
+                ],
             },
         ),
     ]
@@ -1093,6 +1315,197 @@ async def execute_tool(
                         type="text", text=f"Error getting device info: {str(e)}"
                     )
                 ]
+
+        elif name == "add_track":
+            track_type = arguments.get("track_type")
+            if track_type not in ("instrument", "audio", "effect"):
+                raise ValueError(
+                    "Invalid track_type: must be instrument, audio or effect"
+                )
+
+            adders = {
+                "instrument": controller.client.add_instrument_track,
+                "audio": controller.client.add_audio_track,
+                "effect": controller.client.add_effect_track,
+            }
+            adders[track_type]()
+            return [TextContent(type="text", text=f"Added {track_type} track")]
+
+        elif name == "set_track_recarm":
+            track_index = arguments.get("track_index")
+            armed = arguments.get("armed")
+
+            if track_index is None or armed is None:
+                raise ValueError("Missing required arguments: track_index, armed")
+
+            controller.client.set_track_recarm(track_index, bool(armed))
+            state = "armed" if armed else "disarmed"
+            return [TextContent(type="text", text=f"Track {track_index} {state}")]
+
+        elif name == "create_clip":
+            track_index = arguments.get("track_index")
+            slot_index = arguments.get("slot_index")
+            beats = arguments.get("beats")
+
+            if track_index is None or slot_index is None or beats is None:
+                raise ValueError(
+                    "Missing required arguments: track_index, slot_index, beats"
+                )
+
+            controller.client.create_clip(track_index, slot_index, beats)
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        f"Created {beats}-beat clip on track {track_index} "
+                        f"slot {slot_index}"
+                    ),
+                )
+            ]
+
+        elif name == "launch_clip":
+            track_index = arguments.get("track_index")
+            slot_index = arguments.get("slot_index")
+
+            if track_index is None or slot_index is None:
+                raise ValueError("Missing required arguments: track_index, slot_index")
+
+            controller.client.launch_clip(track_index, slot_index)
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Launched clip on track {track_index} slot {slot_index}",
+                )
+            ]
+
+        elif name == "launch_scene":
+            scene_index = arguments.get("scene_index")
+            if scene_index is None:
+                raise ValueError("Missing required argument: scene_index")
+
+            controller.client.launch_scene(scene_index)
+            return [TextContent(type="text", text=f"Launched scene {scene_index}")]
+
+        elif name == "quantize_clip":
+            controller.client.quantize_clip()
+            return [TextContent(type="text", text="Quantized selected clip")]
+
+        elif name == "set_metronome":
+            enabled = arguments.get("enabled")
+            if enabled is None:
+                raise ValueError("Missing required argument: enabled")
+
+            controller.client.set_click(bool(enabled))
+            state = "on" if enabled else "off"
+            return [TextContent(type="text", text=f"Metronome {state}")]
+
+        elif name == "set_time_signature":
+            signature = arguments.get("signature")
+            if not signature:
+                raise ValueError("Missing required argument: signature")
+
+            controller.client.set_time_signature(signature)
+            return [TextContent(type="text", text=f"Time signature set to {signature}")]
+
+        elif name == "play_note":
+            note = arguments.get("note")
+            if note is None:
+                raise ValueError("Missing required argument: note")
+
+            velocity = arguments.get("velocity", 100)
+            duration = arguments.get("duration_seconds", 0.25)
+
+            controller.client.note_on(note, velocity)
+            await asyncio.sleep(duration)
+            controller.client.note_off(note)
+            return [TextContent(type="text", text=f"Played note {note}")]
+
+        elif name == "record_pattern":
+            track_index = arguments.get("track_index")
+            slot_index = arguments.get("slot_index")
+            length_beats = arguments.get("length_beats")
+            bpm = arguments.get("bpm")
+            notes = arguments.get("notes")
+
+            if (
+                track_index is None
+                or slot_index is None
+                or length_beats is None
+                or bpm is None
+                or notes is None
+            ):
+                raise ValueError(
+                    "Missing required arguments: track_index, slot_index, "
+                    "length_beats, bpm, notes"
+                )
+
+            if not isinstance(notes, list) or not notes:
+                raise ValueError("notes must be a non-empty list")
+
+            if not isinstance(bpm, (int, float)) or bpm <= 0:
+                raise ValueError("bpm must be a positive number")
+
+            seconds_per_beat = 60.0 / float(bpm)
+
+            # Build the performance as an ordered list of note-on and note-off
+            # events, so overlapping notes (chords) release correctly.
+            events: List[tuple] = []
+            for item in notes:
+                pitch = item.get("note")
+                start = item.get("start_beat")
+                if pitch is None or start is None:
+                    raise ValueError("each note needs 'note' and 'start_beat'")
+
+                hold = item.get("length_beats", 0.5)
+                velocity = item.get("velocity", 100)
+                events.append((float(start), 1, int(pitch), int(velocity)))
+                events.append((float(start) + float(hold), 0, int(pitch), 0))
+
+            events.sort(key=lambda e: (e[0], e[1]))
+
+            controller.client.create_clip(track_index, slot_index, length_beats)
+            await asyncio.sleep(0.3)
+            controller.client.set_track_recarm(track_index, True)
+            await asyncio.sleep(0.2)
+            controller.client.record_clip(track_index, slot_index)
+
+            # Perform the notes against a monotonic clock, so jitter on one
+            # event does not accumulate across the pattern.
+            start_time = time.monotonic()
+            for beat, is_on, pitch, velocity in events:
+                target = start_time + beat * seconds_per_beat
+                delay = target - time.monotonic()
+                if delay > 0:
+                    await asyncio.sleep(delay)
+
+                if is_on:
+                    controller.client.note_on(pitch, velocity)
+                else:
+                    controller.client.note_off(pitch)
+
+            # Let the clip reach its end before stopping, so it loops cleanly.
+            remaining = start_time + length_beats * seconds_per_beat - time.monotonic()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+
+            controller.client.set_track_recarm(track_index, False)
+            await asyncio.sleep(0.2)
+
+            quantized = False
+            if arguments.get("quantize", True):
+                controller.client.quantize_clip()
+                quantized = True
+
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        f"Recorded {len(notes)} notes into track {track_index} "
+                        f"slot {slot_index} over {length_beats} beats at {bpm} BPM"
+                        + (" (quantized)" if quantized else "")
+                    ),
+                )
+            ]
 
         else:
             raise ValueError(f"Unknown tool: {name}")
