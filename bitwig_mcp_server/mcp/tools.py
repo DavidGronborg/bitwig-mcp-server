@@ -659,7 +659,975 @@ def get_bitwig_tools() -> List[Tool]:
                 ],
             },
         ),
+        Tool(
+            name="track_control",
+            description=(
+                "Act on a track: rename, select, duplicate, remove, solo, "
+                "toggle monitoring, activate, colour, set record quantization, "
+                "or scroll the visible bank of 8 tracks"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "rename",
+                            "select",
+                            "duplicate",
+                            "remove",
+                            "solo",
+                            "monitor",
+                            "activate",
+                            "color",
+                            "record_quantization",
+                            "scroll_bank",
+                        ],
+                    },
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based, within the visible bank of 8)",
+                    },
+                    "name": {"type": "string", "description": "For rename"},
+                    "state": {
+                        "type": "boolean",
+                        "description": "For solo and activate; omit to toggle",
+                    },
+                    "red": {"type": "integer", "description": "For color (0-255)"},
+                    "green": {"type": "integer", "description": "For color (0-255)"},
+                    "blue": {"type": "integer", "description": "For color (0-255)"},
+                    "value": {
+                        "type": "string",
+                        "description": "For record_quantization: OFF, 1/32, 1/16, 1/8 or 1/4",
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["+", "-"],
+                        "description": "For scroll_bank",
+                    },
+                    "by_page": {
+                        "type": "boolean",
+                        "description": "For scroll_bank: move 8 tracks instead of 1",
+                        "default": False,
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="set_track_send",
+            description=(
+                "Set a track's send level, and optionally enable or disable it. "
+                "Sends feed shared reverb and delay returns, so this is the main "
+                "routing control when mixing"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "send_index": {
+                        "type": "integer",
+                        "description": "Send index (1-8)",
+                    },
+                    "volume": {
+                        "type": "number",
+                        "description": "Send level (0-128)",
+                    },
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Enable or disable the send",
+                    },
+                },
+                "required": ["track_index", "send_index"],
+            },
+        ),
+        Tool(
+            name="master_control",
+            description="Set the master channel volume, pan or mute",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["volume", "pan", "mute"],
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "For volume and pan (0-128, 64 is centre/unity)",
+                    },
+                    "state": {
+                        "type": "boolean",
+                        "description": "For mute; omit to toggle",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="eq_control",
+            description=(
+                "Add an EQ+ to the selected track, or shape one of its 8 bands. "
+                "Frequency, gain and Q are normalised 0-128 parameter positions, "
+                "not Hz or dB, because OSC exposes them as generic parameters"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["add", "type", "frequency", "gain", "q"],
+                    },
+                    "band": {
+                        "type": "integer",
+                        "description": "Band number (1-8)",
+                    },
+                    "band_type": {
+                        "type": "string",
+                        "enum": [
+                            "off",
+                            "lowcut",
+                            "lowshelf",
+                            "bell",
+                            "highcut",
+                            "highshelf",
+                            "notch",
+                        ],
+                        "description": "For the type action",
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "Normalised value 0-128 for frequency, gain or q",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="device_control",
+            description=(
+                "Act on the selected device: duplicate, remove, bypass, toggle its "
+                "window, choose a parameter page, reset a parameter, or set the "
+                "parameter most recently touched in Bitwig"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "duplicate",
+                            "remove",
+                            "bypass",
+                            "window",
+                            "select_page",
+                            "navigate_page",
+                            "reset_parameter",
+                            "last_parameter",
+                        ],
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "For select_page (1-8)",
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["+", "-"],
+                        "description": "For navigate_page",
+                    },
+                    "param_index": {
+                        "type": "integer",
+                        "description": "For reset_parameter (1-8 within the page)",
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "For last_parameter (0-128)",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="drumpad_control",
+            description=(
+                "Mix one pad of a drum machine: its volume, pan or mute. Lets a "
+                "kit be balanced without touching the notes"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["volume", "pan", "mute"],
+                    },
+                    "pad": {
+                        "type": "integer",
+                        "description": "Pad number (1-16)",
+                    },
+                    "value": {
+                        "type": "number",
+                        "description": "For volume and pan (0-128)",
+                    },
+                    "state": {
+                        "type": "boolean",
+                        "description": "For mute; omit to toggle",
+                    },
+                },
+                "required": ["action", "pad"],
+            },
+        ),
+        Tool(
+            name="scene_control",
+            description=(
+                "Manage scenes, which hold the sections of a song: create one from "
+                "the playing clips, add an empty one, launch, select, duplicate, "
+                "remove, rename or colour"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "create_from_playing",
+                            "add",
+                            "launch",
+                            "select",
+                            "duplicate",
+                            "remove",
+                            "rename",
+                            "color",
+                        ],
+                    },
+                    "scene_index": {
+                        "type": "integer",
+                        "description": "Scene index (1-8 within the visible bank)",
+                    },
+                    "name": {"type": "string", "description": "For rename"},
+                    "red": {"type": "integer", "description": "For color (0-255)"},
+                    "green": {"type": "integer", "description": "For color (0-255)"},
+                    "blue": {"type": "integer", "description": "For color (0-255)"},
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="clip_control",
+            description=(
+                "Act on clips: select, launch, stop, duplicate, remove, colour, "
+                "rename the selected clip, quantize, return a track to the "
+                "arrangement, or load an audio/MIDI file into a slot"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "select",
+                            "launch",
+                            "duplicate",
+                            "remove",
+                            "color",
+                            "rename",
+                            "quantize",
+                            "stop_track",
+                            "stop_all",
+                            "return_to_arrangement",
+                            "insert_file",
+                        ],
+                    },
+                    "track_index": {
+                        "type": "integer",
+                        "description": "Track index (1-based)",
+                    },
+                    "slot_index": {
+                        "type": "integer",
+                        "description": "Clip slot index (1-8)",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "For rename; applies to the selected clip",
+                    },
+                    "filepath": {
+                        "type": "string",
+                        "description": "For insert_file: absolute path to the file",
+                    },
+                    "red": {"type": "integer", "description": "For color (0-255)"},
+                    "green": {"type": "integer", "description": "For color (0-255)"},
+                    "blue": {"type": "integer", "description": "For color (0-255)"},
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="transport_control",
+            description=(
+                "Drive the transport and recording setup: play, stop, restart, "
+                "arranger record, loop, metronome and its volume, punch in/out, "
+                "overdub, tempo and tapping, playhead position, time signature, "
+                "preroll and launcher quantization"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "play",
+                            "stop",
+                            "restart",
+                            "record",
+                            "repeat",
+                            "metronome",
+                            "metronome_volume",
+                            "punch_in",
+                            "punch_out",
+                            "overdub",
+                            "launcher_overdub",
+                            "tempo",
+                            "tap_tempo",
+                            "nudge_tempo",
+                            "position",
+                            "time_signature",
+                            "preroll",
+                            "launcher_quantization",
+                        ],
+                    },
+                    "state": {
+                        "type": "boolean",
+                        "description": "For play, repeat, metronome, punch and overdub; omit to toggle",
+                    },
+                    "value": {
+                        "description": "Tempo in BPM, beats, a time signature such as 4/4, or a quantization value",
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["+", "-"],
+                        "description": "For nudge_tempo",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="automation_control",
+            description=(
+                "Set up automation recording so parameter moves are captured: "
+                "toggle arranger or launcher automation write, and choose the "
+                "write mode"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["arranger_write", "launcher_write", "mode"],
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["latch", "touch", "write"],
+                        "description": "For the mode action",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
+        Tool(
+            name="project_control",
+            description=(
+                "Project-level actions: save, undo, redo, turn the audio engine "
+                "on or off, and start playback from a cue marker"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": [
+                            "save",
+                            "undo",
+                            "redo",
+                            "audio_engine",
+                            "launch_marker",
+                        ],
+                    },
+                    "state": {
+                        "type": "boolean",
+                        "description": "For audio_engine; omit to toggle",
+                    },
+                    "marker_index": {
+                        "type": "integer",
+                        "description": "For launch_marker (1-8)",
+                    },
+                },
+                "required": ["action"],
+            },
+        ),
     ]
+
+
+def _require(arguments: Dict[str, Any], *names: str) -> List[Any]:
+    """Pull required arguments out of a tool call
+
+    Returns:
+        The argument values in the order requested
+
+    Raises:
+        ValueError: If any are missing
+    """
+    missing = [n for n in names if arguments.get(n) is None]
+    if missing:
+        raise ValueError(f"Missing required arguments: {', '.join(missing)}")
+
+    return [arguments[n] for n in names]
+
+
+def _ok(message: str) -> List[TextContent]:
+    """Wrap a success message as tool output
+
+    Returns:
+        The message as MCP text content
+    """
+    return [TextContent(type="text", text=message)]
+
+
+def _rgb(arguments: Dict[str, Any]) -> List[int]:
+    """Read an r/g/b triple from a tool call
+
+    Returns:
+        Red, green and blue components
+
+    Raises:
+        ValueError: If any component is missing
+    """
+    return [int(v) for v in _require(arguments, "red", "green", "blue")]
+
+
+def _handle_track_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Run one track action
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "scroll_bank":
+        (direction,) = _require(arguments, "direction")
+        client.navigate_track_bank(direction, bool(arguments.get("by_page", False)))
+        return _ok(f"Scrolled track bank {direction}")
+
+    (track_index,) = _require(arguments, "track_index")
+
+    if action == "rename":
+        (name,) = _require(arguments, "name")
+        client.set_track_name(track_index, name)
+        return _ok(f"Renamed track {track_index} to {name}")
+
+    if action == "select":
+        client.select_track(track_index)
+        return _ok(f"Selected track {track_index}")
+
+    if action == "duplicate":
+        client.duplicate_track(track_index)
+        return _ok(f"Duplicated track {track_index}")
+
+    if action == "remove":
+        client.remove_track(track_index)
+        return _ok(f"Removed track {track_index}")
+
+    if action == "solo":
+        state = arguments.get("state")
+        client.set_track_solo(track_index, None if state is None else bool(state))
+        return _ok(f"Set solo on track {track_index} to {state}")
+
+    if action == "monitor":
+        client.toggle_track_monitor(track_index)
+        return _ok(f"Toggled monitoring on track {track_index}")
+
+    if action == "activate":
+        state = arguments.get("state")
+        client.set_track_activated(track_index, None if state is None else bool(state))
+        return _ok(f"Set activation on track {track_index} to {state}")
+
+    if action == "color":
+        red, green, blue = _rgb(arguments)
+        client.set_track_color(track_index, red, green, blue)
+        return _ok(f"Coloured track {track_index} rgb({red},{green},{blue})")
+
+    if action == "record_quantization":
+        (value,) = _require(arguments, "value")
+        client.set_track_record_quantization(track_index, value)
+        return _ok(f"Set record quantization on track {track_index} to {value}")
+
+    raise ValueError(f"Unknown track action: {action}")
+
+
+def _handle_track_send(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Set or enable a send on a track
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If arguments are missing
+    """
+    track_index, send_index = _require(arguments, "track_index", "send_index")
+    client = controller.client
+
+    if arguments.get("volume") is not None:
+        client.set_track_send(track_index, send_index, arguments["volume"])
+        message = (
+            f"Set send {send_index} on track {track_index} to {arguments['volume']}"
+        )
+    else:
+        message = f"Send {send_index} on track {track_index} left at its level"
+
+    if arguments.get("enabled") is not None:
+        client.set_track_send_activated(
+            track_index, send_index, bool(arguments["enabled"])
+        )
+        message += f", enabled={bool(arguments['enabled'])}"
+
+    return _ok(message)
+
+
+def _handle_master_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Control the master channel
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action is invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "volume":
+        (value,) = _require(arguments, "value")
+        client.set_master_volume(value)
+        return _ok(f"Master volume set to {value}")
+
+    if action == "pan":
+        (value,) = _require(arguments, "value")
+        client.set_master_pan(value)
+        return _ok(f"Master pan set to {value}")
+
+    if action == "mute":
+        state = arguments.get("state")
+        client.set_master_mute(None if state is None else bool(state))
+        return _ok(f"Master mute set to {state}")
+
+    raise ValueError(f"Unknown master action: {action}")
+
+
+def _handle_eq_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Add an EQ or shape one of its bands
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "add":
+        client.add_eq()
+        return _ok("Added an EQ+ device to the selected track")
+
+    (band,) = _require(arguments, "band")
+
+    if action == "type":
+        (band_type,) = _require(arguments, "band_type")
+        client.set_eq_band_type(band, band_type)
+        return _ok(f"EQ band {band} set to {band_type}")
+
+    if action in ("frequency", "gain", "q"):
+        (value,) = _require(arguments, "value")
+        setter = {
+            "frequency": client.set_eq_frequency,
+            "gain": client.set_eq_gain,
+            "q": client.set_eq_q,
+        }[action]
+        setter(band, value)
+        return _ok(f"EQ band {band} {action} set to {value}")
+
+    raise ValueError(f"Unknown EQ action: {action}")
+
+
+def _handle_device_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Act on the selected device
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    simple = {
+        "duplicate": (client.duplicate_device, "Duplicated the selected device"),
+        "remove": (client.remove_device, "Removed the selected device"),
+        "bypass": (client.toggle_device_bypass, "Toggled device bypass"),
+        "window": (client.toggle_device_window, "Toggled the device window"),
+    }
+    if action in simple:
+        call, message = simple[action]
+        call()
+        return _ok(message)
+
+    if action == "select_page":
+        (page,) = _require(arguments, "page")
+        client.select_device_page(page)
+        return _ok(f"Selected device parameter page {page}")
+
+    if action == "navigate_page":
+        (direction,) = _require(arguments, "direction")
+        client.navigate_device_page(direction)
+        return _ok(f"Moved device parameter page {direction}")
+
+    if action == "reset_parameter":
+        (param_index,) = _require(arguments, "param_index")
+        client.reset_device_parameter(param_index)
+        return _ok(f"Reset device parameter {param_index}")
+
+    if action == "last_parameter":
+        (value,) = _require(arguments, "value")
+        client.set_last_parameter(value)
+        return _ok(f"Set the last touched parameter to {value}")
+
+    raise ValueError(f"Unknown device action: {action}")
+
+
+def _handle_drumpad_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Mix an individual drum pad
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    action, pad = _require(arguments, "action", "pad")
+    client = controller.client
+
+    if action == "volume":
+        (value,) = _require(arguments, "value")
+        client.set_drumpad_volume(pad, value)
+        return _ok(f"Drum pad {pad} volume set to {value}")
+
+    if action == "pan":
+        (value,) = _require(arguments, "value")
+        client.set_drumpad_pan(pad, value)
+        return _ok(f"Drum pad {pad} pan set to {value}")
+
+    if action == "mute":
+        state = arguments.get("state")
+        client.set_drumpad_mute(pad, None if state is None else bool(state))
+        return _ok(f"Drum pad {pad} mute set to {state}")
+
+    raise ValueError(f"Unknown drum pad action: {action}")
+
+
+def _handle_scene_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Manage scenes, which hold a song's sections
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "create_from_playing":
+        client.create_scene_from_playing()
+        return _ok("Created a scene from the playing clips")
+
+    if action == "add":
+        client.add_scene()
+        return _ok("Added an empty scene")
+
+    (scene_index,) = _require(arguments, "scene_index")
+
+    if action == "launch":
+        client.launch_scene(scene_index)
+        return _ok(f"Launched scene {scene_index}")
+
+    if action == "select":
+        client.select_scene(scene_index)
+        return _ok(f"Selected scene {scene_index}")
+
+    if action == "duplicate":
+        client.duplicate_scene(scene_index)
+        return _ok(f"Duplicated scene {scene_index}")
+
+    if action == "remove":
+        client.remove_scene(scene_index)
+        return _ok(f"Removed scene {scene_index}")
+
+    if action == "rename":
+        (name,) = _require(arguments, "name")
+        client.set_scene_name(scene_index, name)
+        return _ok(f"Renamed scene {scene_index} to {name}")
+
+    if action == "color":
+        red, green, blue = _rgb(arguments)
+        client.set_scene_color(scene_index, red, green, blue)
+        return _ok(f"Coloured scene {scene_index} rgb({red},{green},{blue})")
+
+    raise ValueError(f"Unknown scene action: {action}")
+
+
+def _handle_clip_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Act on clips and clip slots
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "stop_all":
+        client.stop_all_clips()
+        return _ok("Stopped all clips")
+
+    if action == "quantize":
+        client.quantize_clip()
+        return _ok("Quantized the selected clip")
+
+    if action == "rename":
+        (name,) = _require(arguments, "name")
+        client.set_cursor_clip_name(name)
+        return _ok(f"Renamed the selected clip to {name}")
+
+    (track_index,) = _require(arguments, "track_index")
+
+    if action == "stop_track":
+        client.stop_track_clips(track_index)
+        return _ok(f"Stopped the playing clip on track {track_index}")
+
+    if action == "return_to_arrangement":
+        client.return_to_arrangement(track_index)
+        return _ok(f"Track {track_index} returned to the arrangement")
+
+    (slot_index,) = _require(arguments, "slot_index")
+
+    if action == "select":
+        client.select_clip(track_index, slot_index)
+        return _ok(f"Selected clip on track {track_index} slot {slot_index}")
+
+    if action == "launch":
+        client.launch_clip(track_index, slot_index)
+        return _ok(f"Launched clip on track {track_index} slot {slot_index}")
+
+    if action == "duplicate":
+        client.duplicate_clip(track_index, slot_index)
+        return _ok(f"Duplicated clip on track {track_index} slot {slot_index}")
+
+    if action == "remove":
+        client.remove_clip(track_index, slot_index)
+        return _ok(f"Removed clip on track {track_index} slot {slot_index}")
+
+    if action == "color":
+        red, green, blue = _rgb(arguments)
+        client.set_clip_color(track_index, slot_index, red, green, blue)
+        return _ok(
+            f"Coloured clip on track {track_index} slot {slot_index} "
+            f"rgb({red},{green},{blue})"
+        )
+
+    if action == "insert_file":
+        (filepath,) = _require(arguments, "filepath")
+        client.insert_file_into_clip(track_index, slot_index, filepath)
+        return _ok(f"Loaded {filepath} into track {track_index} slot {slot_index}")
+
+    raise ValueError(f"Unknown clip action: {action}")
+
+
+def _handle_transport_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Drive the transport and recording behaviour
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+    state = arguments.get("state")
+    toggle_or_set = None if state is None else bool(state)
+
+    no_argument = {
+        "stop": (client.stop, "Transport stopped"),
+        "restart": (client.restart, "Playback restarted from the beginning"),
+        "record": (client.record, "Arranger recording toggled"),
+        "tap_tempo": (client.tap_tempo, "Tempo tapped"),
+        "launcher_overdub": (
+            client.toggle_launcher_overdub,
+            "Clip launcher overdub toggled",
+        ),
+    }
+    if action in no_argument:
+        call, message = no_argument[action]
+        call()
+        return _ok(message)
+
+    if action == "play":
+        client.play(toggle_or_set)
+        return _ok(
+            f"Playback set to {state}" if state is not None else "Playback toggled"
+        )
+
+    stateful = {
+        "repeat": (client.set_repeat, "Arrangement loop"),
+        "metronome": (client.set_click, "Metronome"),
+        "punch_in": (client.set_punch_in, "Punch in"),
+        "punch_out": (client.set_punch_out, "Punch out"),
+        "overdub": (client.set_overdub, "Arranger overdub"),
+    }
+    if action in stateful:
+        setter, label = stateful[action]
+        setter(toggle_or_set)
+        return _ok(f"{label} set to {state}")
+
+    if action == "tempo":
+        (value,) = _require(arguments, "value")
+        client.set_tempo(value)
+        return _ok(f"Tempo set to {value} BPM")
+
+    if action == "nudge_tempo":
+        (direction,) = _require(arguments, "direction")
+        client.nudge_tempo(direction)
+        return _ok(f"Tempo nudged {direction}")
+
+    if action == "position":
+        (value,) = _require(arguments, "value")
+        client.set_position(value)
+        return _ok(f"Playhead moved to beat {value}")
+
+    if action == "time_signature":
+        (value,) = _require(arguments, "value")
+        client.set_time_signature(value)
+        return _ok(f"Time signature set to {value}")
+
+    if action == "metronome_volume":
+        (value,) = _require(arguments, "value")
+        client.set_click_volume(value)
+        return _ok(f"Metronome volume set to {value}")
+
+    if action == "preroll":
+        (value,) = _require(arguments, "value")
+        client.set_preroll(value)
+        return _ok(f"Preroll set to {value} bars")
+
+    if action == "launcher_quantization":
+        (value,) = _require(arguments, "value")
+        client.set_launcher_quantization(value)
+        return _ok(f"Launcher quantization set to {value}")
+
+    raise ValueError(f"Unknown transport action: {action}")
+
+
+def _handle_automation_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Set up automation recording
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    if action == "arranger_write":
+        client.toggle_arranger_automation_write()
+        return _ok("Arranger automation write toggled")
+
+    if action == "launcher_write":
+        client.toggle_launcher_automation_write()
+        return _ok("Clip launcher automation write toggled")
+
+    if action == "mode":
+        (mode,) = _require(arguments, "mode")
+        client.set_automation_write_mode(mode)
+        return _ok(f"Automation write mode set to {mode}")
+
+    raise ValueError(f"Unknown automation action: {action}")
+
+
+def _handle_project_control(
+    controller: BitwigOSCController, arguments: Dict[str, Any]
+) -> List[TextContent]:
+    """Save, undo and other project-level actions
+
+    Returns:
+        A description of what was done
+
+    Raises:
+        ValueError: If the action or its arguments are invalid
+    """
+    (action,) = _require(arguments, "action")
+    client = controller.client
+
+    no_argument = {
+        "save": (client.save_project, "Project saved"),
+        "undo": (client.undo, "Undone"),
+        "redo": (client.redo, "Redone"),
+    }
+    if action in no_argument:
+        call, message = no_argument[action]
+        call()
+        return _ok(message)
+
+    if action == "audio_engine":
+        state = arguments.get("state")
+        client.set_audio_engine(None if state is None else bool(state))
+        return _ok(f"Audio engine set to {state}")
+
+    if action == "launch_marker":
+        (marker_index,) = _require(arguments, "marker_index")
+        client.launch_marker(marker_index)
+        return _ok(f"Playback started at marker {marker_index}")
+
+    raise ValueError(f"Unknown project action: {action}")
 
 
 async def execute_tool(
@@ -1506,6 +2474,39 @@ async def execute_tool(
                     ),
                 )
             ]
+
+        elif name == "track_control":
+            return _handle_track_control(controller, arguments)
+
+        elif name == "set_track_send":
+            return _handle_track_send(controller, arguments)
+
+        elif name == "master_control":
+            return _handle_master_control(controller, arguments)
+
+        elif name == "eq_control":
+            return _handle_eq_control(controller, arguments)
+
+        elif name == "device_control":
+            return _handle_device_control(controller, arguments)
+
+        elif name == "drumpad_control":
+            return _handle_drumpad_control(controller, arguments)
+
+        elif name == "scene_control":
+            return _handle_scene_control(controller, arguments)
+
+        elif name == "clip_control":
+            return _handle_clip_control(controller, arguments)
+
+        elif name == "transport_control":
+            return _handle_transport_control(controller, arguments)
+
+        elif name == "automation_control":
+            return _handle_automation_control(controller, arguments)
+
+        elif name == "project_control":
+            return _handle_project_control(controller, arguments)
 
         else:
             raise ValueError(f"Unknown tool: {name}")
