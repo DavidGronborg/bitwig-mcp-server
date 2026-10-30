@@ -816,12 +816,12 @@ class BitwigOSCClient:
     def set_clip_name(self, track_index: int, slot_index: int, name: str) -> None:
         """Name a clip
 
-        Known not to work. The address is documented upstream, but on
-        DrivenByMoss 5.2 (tested against Bitwig 6.1.4) the clip name stays
-        empty afterwards, and /clip/name is not reported back at all, with or
-        without the clip selected first. Kept because the address is part of
-        the documented protocol and may work on other versions; deliberately
-        not exposed as an MCP tool, so nothing depends on it silently.
+        Does not work, and cannot: /track/{i}/clip/{j}/name only exists as a
+        sent message, reporting a clip's name out of the DAW. It is not in the
+        protocol's received commands, so Bitwig never acts on it. Kept only so
+        callers reaching for it find this explanation; use the cursor-clip
+        route in set_cursor_clip_name instead, and read its caveat first.
+        Deliberately not exposed as an MCP tool.
 
         Args:
             track_index: Track index (1-based)
@@ -1795,8 +1795,15 @@ class BitwigOSCClient:
     def set_cursor_clip_name(self, name: str) -> None:
         """Name the cursor clip
 
-        Unlike the per-slot name address, this one is a documented receive
-        command. Select the clip first with select_clip.
+        Unlike the per-slot name address this is a real received command, but
+        it still does not work from OSC alone, verified against DrivenByMoss
+        5.2 and Bitwig 6.1.4. Calling select_clip first sets the slot's
+        isSelected to 1 while /clip/exists stays 0, so the cursor clip is
+        never established and there is nothing to rename. The cursor clip
+        appears to follow Bitwig's detail editor, which OSC cannot drive.
+
+        Clip naming therefore has no working route over OSC; name clips by
+        hand. Scene naming does work, so label sections with set_scene_name.
 
         Args:
             name: Name to give the clip
